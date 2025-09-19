@@ -1,0 +1,3 @@
+# Fake URLs used in tests, intentionally, they should not be checked
+value_url_https://just.for.test
+value_url_https://github.com/example/test-agent

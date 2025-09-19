@@ -1,0 +1,235 @@
+# Copyright © 2025 Cisco Systems, Inc. and its affiliates.
+# All rights reserved.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+name: Test Signing and Pushing
+
+env:
+  TEST_RECORD_UNSIGNED: "./test-data/records/action-test.json"
+  TEST_RECORD_SIGNED: "./test-data/records/action-test.signed.json"
+
+on:
+  workflow_dispatch:
+    inputs:
+      record_version:
+        description: 'Record version (must be unique - required for manual dispatch, defaults to commit SHA for automated runs)'
+        required: true
+        type: string
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-push-fake-credentials:
+    name: Test push with fake credentials
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Agent directory push and sign reusable action
+        id: test_fake_cred_push
+        uses: ./
+        continue-on-error: true
+        with:
+          dirctl_client_id: "fake-client-id"
+          dirctl_secret: "fake-secret"
+          record_file: ${{ env.TEST_RECORD_SIGNED }}
+
+      - name: Verify and upload
+        uses: ./.github/actions/verify-and-upload
+        with:
+          verification_type: failure
+          outcome: ${{ steps.test_fake_cred_push.outcome }}
+          expected_error: "failed to authenticate with API key"
+          test_name: "test-push-fake-credentials"
+
+  test-pushing-unsigned-record-without-signing:
+    name: Test pushing unsigned record without signing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Agent directory push and sign reusable action
+        id: test_unsigned_push
+        uses: ./
+        continue-on-error: true
+        with:
+          dirctl_client_id: "fake-client-id"
+          dirctl_secret: "fake-secret"
+          record_file: ${{ env.TEST_RECORD_UNSIGNED }}
+
+      - name: Verify and upload
+        uses: ./.github/actions/verify-and-upload
+        with:
+          verification_type: failure
+          outcome: ${{ steps.test_unsigned_push.outcome }}
+          expected_error: "agent signature is required"
+          test_name: "test-pushing-unsigned-record"
+
+  test-push-already-existing-record:
+    name: Test pushing already existing record
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Agent directory push and sign reusable action
+        id: test_push_existing
+        uses: ./
+        continue-on-error: true
+        with:
+          dirctl_client_id: ${{ secrets.DIRCTL_APIKEY_CLIENT_ID }}
+          dirctl_secret: ${{ secrets.DIRCTL_APIKEY_SECRET }}
+          record_file: ${{ env.TEST_RECORD_UNSIGNED }}
+          cosign_private_key: ${{ secrets.COSIGN_KEY }}
+          cosign_private_key_password: ${{ secrets.COSIGN_PASSWORD }}
+
+      - name: Verify and upload
+        uses: ./.github/actions/verify-and-upload
+        with:
+          verification_type: failure
+          outcome: ${{ steps.test_push_existing.outcome }}
+          expected_error: "model with same version already exists"
+          test_name: "test-push-existing-record"
+
+  test-pushing-pre-signed-record:
+    name: Test pushing pre-signed record
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Set version
+        id: set_version
+        uses: ./.github/actions/set-version
+        with:
+          version: ${{ inputs.record_version }}
+
+      - name: Agent directory push and sign reusable action
+        id: test_signed_push
+        uses: ./
+        with:
+          dirctl_client_id: ${{ secrets.DIRCTL_APIKEY_CLIENT_ID }}
+          dirctl_secret: ${{ secrets.DIRCTL_APIKEY_SECRET }}
+          record_file: ${{ env.TEST_RECORD_SIGNED }}
+          record_name: "pre-signed-record"
+          record_version: ${{ steps.set_version.outputs.version }}
+
+      - name: Verify and upload
+        uses: ./.github/actions/verify-and-upload
+        with:
+          verification_type: success
+          outcome: ${{ steps.test_signed_push.outcome }}
+          test_name: "test-pushing-pre-signed-record"
+
+  test-sign-and-push-unsigned-record:
+    name: Test signing and pushing unsigned record
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Set version
+        id: set_version
+        uses: ./.github/actions/set-version
+        with:
+          version: ${{ inputs.record_version }}
+
+      - name: Agent directory push and sign reusable action
+        id: test_sign_push
+        uses: ./
+        with:
+          dirctl_client_id: ${{ secrets.DIRCTL_APIKEY_CLIENT_ID }}
+          dirctl_secret: ${{ secrets.DIRCTL_APIKEY_SECRET }}
+          record_file: ${{ env.TEST_RECORD_UNSIGNED }}
+          record_name: "signed-record"
+          record_version: ${{ steps.set_version.outputs.version }}
+          cosign_private_key: ${{ secrets.COSIGN_KEY }}
+          cosign_private_key_password: ${{ secrets.COSIGN_PASSWORD }}
+
+      - name: Verify and upload
+        uses: ./.github/actions/verify-and-upload
+        with:
+          verification_type: signed_success
+          outcome: ${{ steps.test_sign_push.outcome }}
+          test_name: "test-sign-and-push-unsigned-record"
+          record_file: ${{ env.TEST_RECORD_UNSIGNED }}
+
+  test-re-sign-already-signed-record:
+    name: Test re-signing already signed record
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Set version
+        id: set_version
+        uses: ./.github/actions/set-version
+        with:
+          version: ${{ inputs.record_version }}
+
+      - name: Agent directory push and sign reusable action
+        id: test_re_sign_push
+        uses: ./
+        with:
+          dirctl_client_id: ${{ secrets.DIRCTL_APIKEY_CLIENT_ID }}
+          dirctl_secret: ${{ secrets.DIRCTL_APIKEY_SECRET }}
+          record_file: ${{ env.TEST_RECORD_SIGNED }}
+          record_name: "re-signed-record"
+          record_version: ${{ steps.set_version.outputs.version }}
+          cosign_private_key: ${{ secrets.COSIGN_KEY }}
+          cosign_private_key_password: ${{ secrets.COSIGN_PASSWORD }}
+
+      - name: Verify and upload
+        uses: ./.github/actions/verify-and-upload
+        with:
+          verification_type: signed_success
+          outcome: ${{ steps.test_re_sign_push.outcome }}
+          test_name: "test-re-sign-already-signed-record"
+          record_file: ${{ env.TEST_RECORD_SIGNED }}
+
+  test-push-pre-signed-record-to-different-org:
+    name: Test push to different org
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Set version
+        id: set_version
+        uses: ./.github/actions/set-version
+        with:
+          version: ${{ inputs.record_version }}
+
+      - name: Agent directory push and sign reusable action
+        id: test_different_org_push
+        uses: ./
+        continue-on-error: true
+        with:
+          dirctl_client_id: ${{ secrets.DIRCTL_APIKEY_CLIENT_ID }}
+          dirctl_secret: ${{ secrets.DIRCTL_APIKEY_SECRET }}
+          record_file: ${{ env.TEST_RECORD_SIGNED }}
+          organization_name: "test-github-actions-org-2"
+          record_name: "pre-signed-record"
+          record_version: ${{ steps.set_version.outputs.version }}
+
+      - name: Verify and upload
+        uses: ./.github/actions/verify-and-upload
+        with:
+          verification_type: failure
+          outcome: ${{ steps.test_different_org_push.outcome }}
+          expected_error: "API key does not belong to the organization"
+          test_name: "test-push-pre-signed-record-to-different-org"

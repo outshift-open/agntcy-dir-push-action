@@ -1,0 +1,97 @@
+# Copyright © 2025 Cisco Systems, Inc. and its affiliates.
+# All rights reserved.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+name: 'Agent Directory Push'
+description: 'Push records to your Agent Directory using the dirctl CLI.'
+
+inputs:
+  directory_endpoint:
+    description: 'The Agent Directory SaaS endpoint URL.'
+    required: true
+    default: 'https://agent-directory.outshift.com'
+  dirctl_client_id:
+    description: 'Client ID for Agent Directory API key authentication.'
+    required: true
+  dirctl_secret:
+    description: 'Secret for Agent Directory API key authentication.'
+    required: true
+  record_file:
+    description: 'Path to the JSON file containing the directory record to push (relative to repository root).'
+    required: true
+  organization_name:
+    description: 'The name of the organization to push the record to. Overrides the organization in the record file.'
+    required: false
+  record_name:
+    description: 'The name of the record to be pushed. Overrides the name in the record file.'
+    required: false
+  record_version:
+    description: 'The version of the record to be pushed. Overrides the version in the record file.'
+    required: false
+  cosign_private_key:
+    description: 'Cosign private key content for signing the record.'
+    required: false
+  cosign_private_key_password:
+    description: 'Password for the encrypted cosign private key used to sign the record.'
+    required: false
+  dirctl_version:
+    description: 'Version of dirctl to download and use.'
+    required: false
+    default: 'v0.2.13'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Detect OS and Architecture
+      shell: bash
+      run: |
+        OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+        ARCH=$(uname -m)
+
+        case $ARCH in
+          x86_64) ARCH="amd64" ;;
+          aarch64|arm64) ARCH="arm64" ;;
+          *) echo "Error: Unsupported architecture $ARCH" && exit 1 ;;
+        esac
+
+        echo "DIRCTL_OS=$OS" >> $GITHUB_ENV
+        echo "DIRCTL_ARCH=$ARCH" >> $GITHUB_ENV
+        echo "Detected OS: $OS, Architecture: $ARCH"
+
+    - name: Download and install dirctl
+      shell: bash
+      run: |
+        DIRCTL_URL="https://github.com/agntcy/dir/releases/download/${{ inputs.dirctl_version }}/dirctl-${DIRCTL_OS}-${DIRCTL_ARCH}"
+
+        mkdir -p "$GITHUB_WORKSPACE/bin"
+        curl -L "$DIRCTL_URL" -o "$GITHUB_WORKSPACE/bin/dirctl"
+        chmod +x "$GITHUB_WORKSPACE/bin/dirctl"
+        echo "$GITHUB_WORKSPACE/bin" >> $GITHUB_PATH
+        echo "Downloaded dirctl from: $DIRCTL_URL"
+
+    - name: Run Agent Directory Sign and Push
+      id: run_sign_push
+      shell: bash
+      run: |
+        bash ${{ github.action_path }}/entrypoint.sh \
+        -e "${{ inputs.directory_endpoint }}" \
+        -c "${{ inputs.dirctl_client_id }}" \
+        -s "${{ inputs.dirctl_secret }}" \
+        -f "${{ inputs.record_file }}" \
+        -o "${{ inputs.organization_name }}" \
+        -n "${{ inputs.record_name }}" \
+        -v "${{ inputs.record_version }}" \
+        -k "${{ inputs.cosign_private_key }}" \
+        -p "${{ inputs.cosign_private_key_password }}"

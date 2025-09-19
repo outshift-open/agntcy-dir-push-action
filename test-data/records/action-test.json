@@ -1,0 +1,16 @@
+{
+  "name": "test-github-actions-org/test-github-actions-record",
+  "version": "1.0",
+  "description": "Agent used for testing dirctl push in GitHub Actions",
+  "locators": [
+    {
+      "url": "https://github.com/example/agent_example",
+      "type": "package-source-code"
+    }
+  ],
+  "skills": [
+    {
+      "class_uid": 10201
+    }
+  ]
+}

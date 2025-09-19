@@ -1,0 +1,68 @@
+# Copyright © 2025 Cisco Systems, Inc. and its affiliates.
+# All rights reserved.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+name: 'Verify Test Result and Upload Artifacts'
+description: 'Verifies test outcomes and uploads gha artifacts'
+
+inputs:
+  verification_type:
+    description: 'Type of verification (failure, success, signed_success)'
+    required: true
+  outcome:
+    description: 'Outcome to verify'
+    required: true
+  test_name:
+    description: 'Test name used for artifacts naming'
+    required: true
+  expected_error:
+    description: 'Expected error message (for failure verification type)'
+    required: false
+  record_file:
+    description: 'Record file path (for signed_success verification type)'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Run verification
+      shell: bash
+      run: |
+        chmod +x ./test-data/verify_output.sh
+        source ./test-data/verify_output.sh
+
+        case "${{ inputs.verification_type }}" in
+          "failure")
+            verify_test_failure "${{ inputs.outcome }}" "${{ inputs.expected_error }}" "${{ inputs.test_name }}"
+            ;;
+          "success")
+            verify_test_success "${{ inputs.outcome }}" "${{ inputs.test_name }}"
+            ;;
+          "signed_success")
+            verify_test_signed_success "${{ inputs.outcome }}" "${{ inputs.test_name }}" "${{ inputs.record_file }}"
+            ;;
+          *)
+            echo "Error: Unknown verification type: ${{ inputs.verification_type }}"
+            exit 1
+            ;;
+        esac
+
+    - name: Upload test artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ inputs.test_name }}-outputs
+        path: /tmp/dirctl-artifacts/
+        retention-days: 30

@@ -1,0 +1,101 @@
+# Copyright © 2025 Cisco Systems, Inc. and its affiliates.
+# All rights reserved.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+name: Unit Tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-bash-functions:
+    name: Test bash functions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Test setup_options initialization
+        run: |
+          source ./entrypoint.sh
+          setup_options
+
+          # Verify all options are empty
+          for key in directory_endpoint dirctl_client_id dirctl_secret record_file organization_name record_name record_version cosign_private_key cosign_private_key_password; do
+            if [[ -n "${options[$key]}" ]]; then
+              echo "ERROR: Option $key should be empty after initialization, got: '${options[$key]}'"
+              exit 1
+            fi
+          done
+
+          echo "SUCCESS: setup_options initialization"
+
+      - name: Test setup_options usage
+        run: |
+          source ./entrypoint.sh
+          setup_options -e "https://just.for.test" -c "test-client" -s "test-secret" -f "test-file.json" -o "test-org" -n "test-agent" -v "1.0.0" -k "test-key" -p "test-password"
+
+          # Verify all options were set correctly
+          [[ "${options["directory_endpoint"]}" == "https://just.for.test" ]] || { echo "ERROR: directory_endpoint not set correctly"; exit 1; }
+          [[ "${options["dirctl_client_id"]}" == "test-client" ]] || { echo "ERROR: dirctl_client_id not set correctly"; exit 1; }
+          [[ "${options["dirctl_secret"]}" == "test-secret" ]] || { echo "ERROR: dirctl_secret not set correctly"; exit 1; }
+          [[ "${options["record_file"]}" == "test-file.json" ]] || { echo "ERROR: record_file not set correctly"; exit 1; }
+          [[ "${options["organization_name"]}" == "test-org" ]] || { echo "ERROR: organization_name not set correctly"; exit 1; }
+          [[ "${options["record_name"]}" == "test-agent" ]] || { echo "ERROR: record_name not set correctly"; exit 1; }
+          [[ "${options["record_version"]}" == "1.0.0" ]] || { echo "ERROR: record_version not set correctly"; exit 1; }
+          [[ "${options["cosign_private_key"]}" == "test-key" ]] || { echo "ERROR: cosign_private_key not set correctly"; exit 1; }
+          [[ "${options["cosign_private_key_password"]}" == "test-password" ]] || { echo "ERROR: cosign_private_key_password not set correctly"; exit 1; }
+          echo "SUCCESS: setup_options usage"
+
+      - name: Test check_option_set function
+        run: |
+          source ./entrypoint.sh
+
+          # Test with not empty value
+          if ! check_option_set "test-value"; then
+            echo "ERROR: check_option_set should return true for non-empty value"
+            exit 1
+          fi
+
+          # Test with empty value
+          if check_option_set ""; then
+            echo "ERROR: check_option_set should return false for empty value"
+            exit 1
+          fi
+
+          echo "SUCCESS: check_option_set"
+
+      - name: Test verify_output.sh functions
+        run: |
+          source ./test-data/verify_output.sh
+
+          # Test setup_test_artifacts with existing file
+          echo "test content" > /tmp/test_file.txt
+
+          if ! setup_test_artifacts "test-case" "success" "/tmp/test_file.txt"; then
+            echo "ERROR: setup_test_artifacts should succeed with existing file"
+            exit 1
+          fi
+
+          # Test setup_test_artifacts with non-existing file
+          if setup_test_artifacts "test-case" "failure" "/tmp/non_existent.txt"; then
+            echo "ERROR: setup_test_artifacts should fail with non-existing file"
+            exit 1
+          fi
+
+          rm -f /tmp/test_file.txt
+          echo "SUCCESS: verify_output.sh setup_test_artifacts"

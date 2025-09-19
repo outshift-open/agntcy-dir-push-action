@@ -1,0 +1,250 @@
+# Copyright © 2025 Cisco Systems, Inc. and its affiliates.
+# All rights reserved.
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+
+#     http://www.apache.org/licenses/LICENSE-2.0
+
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+name: Error Handling Tests
+
+env:
+  DIRCTL_ARTIFACTS_PATH: /tmp/dirctl-artifacts/
+  TEST_RECORD_INVALID_JSON: "./test-data/records/invalid.json"
+  TEST_RECORD_INVALID_NAME: "./test-data/records/invalid-name.json"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-missing-file:
+    name: Test missing record file
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Test action with missing file
+        id: test_missing_file
+        uses: ./
+        continue-on-error: true
+        with:
+          dirctl_client_id: "fake-client-id"
+          dirctl_secret: "fake-secret"
+          record_file: "./non-existent-file.json"
+
+      - name: Verify and upload
+        uses: ./.github/actions/verify-and-upload
+        with:
+          verification_type: failure
+          outcome: ${{ steps.test_missing_file.outcome }}
+          expected_error: "Directory record file not found"
+          test_name: "test-missing-file"
+
+  test-invalid-json:
+    name: Test invalid JSON file
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Create invalid JSON file
+        run: |
+          mkdir -p ./test-data/records
+          echo '{ "name": "test-org/test-agent", "version": "1.0.0" invalid json }' > "$TEST_RECORD_INVALID_JSON"
+
+      - name: Test action with invalid JSON
+        id: test_invalid_json
+        uses: ./
+        continue-on-error: true
+        with:
+          dirctl_client_id: "fake-client-id"
+          dirctl_secret: "fake-secret"
+          record_file: ${{ env.TEST_RECORD_INVALID_JSON }}
+
+      - name: Verify and upload
+        uses: ./.github/actions/verify-and-upload
+        with:
+          verification_type: failure
+          outcome: ${{ steps.test_invalid_json.outcome }}
+          expected_error: "Invalid JSON format in record file"
+          test_name: "test-invalid-json"
+
+  test-invalid-name-format:
+    name: Test invalid name format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Create record with invalid name format
+        run: |
+          mkdir -p ./test-data/records
+          cat > "$TEST_RECORD_INVALID_NAME" << 'EOF'
+          {
+            "name": "invalid-name-without-slash",
+            "version": "1.0.0",
+            "description": "Test record with invalid name format",
+            "skills": [
+              {
+                "class_uid": 10201
+              }
+            ],
+            "locators": [
+              {
+                "type": "package-source-code",
+                "url": "https://github.com/example/test-agent"
+              }
+            ]
+          }
+          EOF
+
+      - name: Test action with invalid name format
+        id: test_invalid_name
+        uses: ./
+        continue-on-error: true
+        with:
+          dirctl_client_id: "fake-client-id"
+          dirctl_secret: "fake-secret"
+          record_file: ${{ env.TEST_RECORD_INVALID_NAME }}
+
+      - name: Verify and upload
+        uses: ./.github/actions/verify-and-upload
+        with:
+          verification_type: failure
+          outcome: ${{ steps.test_invalid_name.outcome }}
+          expected_error: "Invalid name format in record file"
+          test_name: "test-invalid-name-format"
+
+  test-missing-name-field:
+    name: Test missing name field
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Create record without name field
+        run: |
+          mkdir -p ./test-data/records
+          cat > ./test-data/records/no-name.json << 'EOF'
+          {
+            "version": "1.0.0",
+            "description": "Test record without name field",
+            "skills": [
+              {
+                "class_uid": 10201
+              }
+            ]
+          }
+          EOF
+
+      - name: Test action with missing name field
+        id: test_missing_name
+        uses: ./
+        continue-on-error: true
+        with:
+          dirctl_client_id: "fake-client-id"
+          dirctl_secret: "fake-secret"
+          record_file: "./test-data/records/no-name.json"
+
+      - name: Verify and upload
+        uses: ./.github/actions/verify-and-upload
+        with:
+          verification_type: failure
+          outcome: ${{ steps.test_missing_name.outcome }}
+          expected_error: "record file must contain a 'name'"
+          test_name: "test-missing-name-field"
+
+  test-empty-record-file:
+    name: Test empty record file
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Create empty record file
+        run: |
+          mkdir -p ./test-data/records
+          touch ./test-data/records/empty.json
+
+      - name: Test action with empty file
+        id: test_empty_file
+        uses: ./
+        continue-on-error: true
+        with:
+          dirctl_client_id: "fake-client-id"
+          dirctl_secret: "fake-secret"
+          record_file: "./test-data/records/empty.json"
+
+      - name: Verify and upload
+        uses: ./.github/actions/verify-and-upload
+        with:
+          verification_type: failure
+          outcome: ${{ steps.test_empty_file.outcome }}
+          expected_error: "Invalid JSON format in record file"
+          test_name: "test-empty-record-file"
+
+  test-missing-required-parameters:
+    name: Test missing required parameters
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
+
+      - name: Test action without client_id
+        id: test_missing_client_id
+        uses: ./
+        continue-on-error: true
+        with:
+          dirctl_secret: "fake-secret"
+          record_file: "./test-data/records/action-test.json"
+
+      - name: Verify missing client_id error
+        run: |
+          if [[ "${{ steps.test_missing_client_id.outcome }}" != "failure" ]]; then
+            echo "ERROR: Action should have failed without client_id"
+            exit 1
+          fi
+          echo "SUCCESS: Action correctly failed without client_id"
+
+      - name: Test action without secret
+        id: test_missing_secret
+        uses: ./
+        continue-on-error: true
+        with:
+          dirctl_client_id: "fake-client-id"
+          record_file: "./test-data/records/action-test.json"
+
+      - name: Verify missing secret error
+        run: |
+          if [[ "${{ steps.test_missing_secret.outcome }}" != "failure" ]]; then
+            echo "ERROR: Action should have failed without secret"
+            exit 1
+          fi
+          echo "SUCCESS: Action correctly failed without secret"
+
+      - name: Test action without record_file
+        id: test_missing_record_file
+        uses: ./
+        continue-on-error: true
+        with:
+          dirctl_client_id: "fake-client-id"
+          dirctl_secret: "fake-secret"
+
+      - name: Verify missing record_file error
+        run: |
+          if [[ "${{ steps.test_missing_record_file.outcome }}" != "failure" ]]; then
+            echo "ERROR: Action should have failed without record_file"
+            exit 1
+          fi
+          echo "SUCCESS: Action correctly failed without record_file"
