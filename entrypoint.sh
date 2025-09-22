@@ -160,7 +160,7 @@ function sign_record {
       export COSIGN_PASSWORD="${options["cosign_private_key_password"]}"
     fi
     SIGNED_RECORD_FILE="${DIRCTL_ARTIFACTS_DIR}/signed-${RECORD_BASENAME}"
-    if cat "$PROCESSED_RECORD_FILE" | dirctl sign --stdin --key "$TEMP_KEY" > "$DIRCTL_OUTPUT_LOG" 2>&1; then
+    if cat "$PROCESSED_RECORD_FILE" | dirctl hub sign --stdin --key "$TEMP_KEY" > "$DIRCTL_OUTPUT_LOG" 2>&1; then
       mv "$DIRCTL_OUTPUT_LOG" "$SIGNED_RECORD_FILE"
       echo "Successfully signed directory record"
     else

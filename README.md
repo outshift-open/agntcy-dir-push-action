@@ -89,6 +89,9 @@ your-private-key-content-here
 -----END ENCRYPTED SIGSTORE PRIVATE KEY-----
 ```
 
+>**Note:** You can sign the record with `dirctl` **locally** by exectuting:\
+> `cat your-record.json | dirctl hub sign --stdin --key cosign.key > signed-record.json`
+
 ### Directory Record File
 
 Your directory record JSON file **must be present in your repository**. You can place it anywhere in your repository structure (e.g., `./records/my-record.json`).

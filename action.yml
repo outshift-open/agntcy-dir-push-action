@@ -49,7 +49,7 @@ inputs:
   dirctl_version:
     description: 'Version of dirctl to download and use.'
     required: false
-    default: 'v0.2.13'
+    default: 'v0.3.0'
 
 runs:
   using: 'composite'
