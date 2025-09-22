@@ -1,19 +1,9 @@
 #!/bin/bash
 
-# Copyright © 2025 Cisco Systems, Inc. and its affiliates.
-# All rights reserved.
+# Copyright agntcy-dir-push-action contributors
+# (https://github.com/outshift-open/agntcy-dir-push-action/blob/main/CONTRIBUTORS.md)
+# SPDX-License-Identifier: Apache-2.0
 
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-
-#     http://www.apache.org/licenses/LICENSE-2.0
-
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 
 set -e
@@ -160,7 +150,7 @@ function sign_record {
       export COSIGN_PASSWORD="${options["cosign_private_key_password"]}"
     fi
     SIGNED_RECORD_FILE="${DIRCTL_ARTIFACTS_DIR}/signed-${RECORD_BASENAME}"
-    if cat "$PROCESSED_RECORD_FILE" | dirctl sign --stdin --key "$TEMP_KEY" > "$DIRCTL_OUTPUT_LOG" 2>&1; then
+    if cat "$PROCESSED_RECORD_FILE" | dirctl hub sign --stdin --key "$TEMP_KEY" > "$DIRCTL_OUTPUT_LOG" 2>&1; then
       mv "$DIRCTL_OUTPUT_LOG" "$SIGNED_RECORD_FILE"
       echo "Successfully signed directory record"
     else
