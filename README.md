@@ -2,7 +2,7 @@
 
 ![GitHub Release (latest by date)](https://img.shields.io/github/v/release/outshift-open/agntcy-dir-push-action)
 [![Tests](https://github.com/outshift-open/agntcy-dir-push-action/actions/workflows/test-signing-and-pushing.yml/badge.svg?branch=main)](https://github.com/outshift-open/agntcy-dir-push-action/actions/workflows/test-signing-and-pushing.yml)
-[![License](https://img.shields.io/github/license/outshift-open/open-ui-kit)](LICENSE.md)
+[![License](https://img.shields.io/github/license/outshift-open/agntcy-dir-push-action)](LICENSE.md)
 
 Push records to your [Agent Directory](https://agent-directory.outshift.com) using the [dirctl CLI](https://github.com/agntcy/dir).
 
