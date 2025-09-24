@@ -4,22 +4,18 @@
 [![Tests](https://github.com/outshift-open/agntcy-dir-push-action/actions/workflows/test-signing-and-pushing.yml/badge.svg?branch=main)](https://github.com/outshift-open/agntcy-dir-push-action/actions/workflows/test-signing-and-pushing.yml)
 [![License](https://img.shields.io/github/license/outshift-open/agntcy-dir-push-action)](LICENSE.md)
 
-Push records to your [Agent Directory](https://agent-directory.outshift.com) using the [dirctl CLI](https://github.com/agntcy/dir).
+Push [OASF](https://github.com/agntcy/oasf) records to the [Hosted Outshift Agent Directory](https://agent-directory.outshift.com) using the [dirctl CLI](https://github.com/agntcy/dir).
 
 ## How It Works
 
-The action prepares the `dirctl` CLI for your runner's environment and **processes your record file**, applying any specified overrides for organization, name, or version. It then smartly **handles the record's signature** before **pushing the final version** to your specified Agent Directory.
+This GitHub Action streamlines the process of publishing your AI agents to the Agent Directory. Features:
 
-
-## Features
-
-- **Downloads** the correct `dirctl` binary for your runner's OS and architecture.
-- **Pushes** records that are already signed.
-- **Signs** unsigned records on-the-fly using a provided Cosign key.
-- **Re-signs** an already signed record with a new key.
-- Dynamically **overrides** `organization_name`, `record_name`, and `record_version` at runtime.
-- Uses GitHub **secrets** for API keys and signing credentials.
-- Automatically provides GitHub action **artifacts** for easy troubleshooting.
+*  **Environment Setup**: Automatically downloads and configures the correct `dirctl` CLI binary for your runner's operating system and architecture
+*  **Record Processing**: Reads your agent record file and applies any runtime overrides you've specified (organization name, record name, or version)
+*  **Smart Signing**: Intelligently handles record signatures - whether your record is already signed, needs signing with your provided Cosign key, or requires re-signing with a new key
+*  **Secure Publishing**: Pushes the final, processed record to Agent Directory using authenticated API credentials
+* **Secret Handling** Uses GitHub secrets for API keys and signing credentials.
+* **Troubleshooting** Automatically provides GitHub action artifacts for easy troubleshooting.
 
 ## Supported Platforms
 
@@ -37,7 +33,7 @@ You'll need **API Key credentials** for your Agent Directory instance. Follow th
    dirctl hub login
    ```
 
-2. **Create an API key for your organization:**
+1. **Create an API key for your organization:**
    ```bash
    dirctl hub apikey create --role ROLE_ORG_ADMIN --org-name your_org_name
    ```
@@ -49,24 +45,13 @@ You'll need **API Key credentials** for your Agent Directory instance. Follow th
    - `ROLE_VIEWER` - Read-only access
 
 
-> **Important**: The `name` field in your directory record file must always be in the format `"my-org/my-record"`. The organization part (`my-org`) must match the `--org-name` used to create the API key. If they differ, use the `organization_name` input to override it.
-
-3. **Extract the credentials:**
-
-   The command will output your `client_id`:
+   The command will output both client id and secret:
    ```
-   API Key created successfully:
-   {
-     "client_id": "abcd1234-56ef-78gh-90ij-klmnopqrstuv@ak.example.io",
-     "role_name": "ROLE_ORG_ADMIN"
-   }
+   DIRCTL_CLIENT_ID=3603e7f1-6903-44ec-868e-b78fab3cf43f@ak.eticloud.io
+   DIRCTL_CLIENT_SECRET=*********************************************
    ```
 
-   The `secret` (base64 encoded) can be found in your session file:
-   - Location: `~/.dirctl/session.json`
-   - Path: `[hub_sessions][your-directory-url][api_key_access][secret]`
-
-4. **Add them as GitHub secrets in your repository:**
+1. **Add them as GitHub secrets in your repository:**
 
    Create secrets with any names you prefer, for example:
    - `AGENT_DIRECTORY_CLIENT_ID`
@@ -95,6 +80,9 @@ your-private-key-content-here
 ### Directory Record File
 
 Your directory record JSON file **must be present in your repository**. You can place it anywhere in your repository structure (e.g., `./records/my-record.json`).
+
+> **Important**: The `name` field in your directory record file must always be in the format `"my-org/my-record"`. The organization part (`my-org`) must match the `--org-name` used to create the API key. If they differ, use the `organization_name` input to override it.
+
 
 ## Override Behavior
 
@@ -212,60 +200,6 @@ jobs:
 | `cosign_private_key_password` | Password for encrypted cosign private key | No | - |
 | `dirctl_version` | Version of dirctl to download and use | No | `v0.3.0` |
 
-## Directory Record File Format
-
-Your directory record file should be a JSON file stored in your repository following this structure:
-
-```json
-{
-  "name": "organization/record-name",
-  "version": "1.0.0",
-  "description": "Description of your AI agent",
-  "schema_version": "0.7.0",
-  "skills": [
-    {
-      "class_uid": 10201
-    }
-  ],
-  "locators": [
-    {
-      "type": "package-source-code",
-      "url": "https://github.com/example/my-record"
-    }
-  ]
-}
-```
-
-### With Existing Signature (Example)
-
-If your record is already signed, include the signature block:
-
-```json
-{
-  "name": "organization/record-name",
-  "version": "1.0.0",
-  "description": "Description of your AI agent",
-  "schema_version": "0.7.0",
-  "skills": [
-    {
-      "class_uid": 10201
-    }
-  ],
-  "locators": [
-    {
-      "type": "package-source-code",
-      "url": "https://github.com/example/my-record"
-    }
-  ],
-  "signature": {
-    "algorithm": "SHA2_256",
-    "signature": "abcdef123456789example0123456789abcdef123456789example0123456789abcd",
-    "content_type": "application/vnd.dev.sigstore.bundle.v0.3+json",
-    "content_bundle": "CoNtEnTbUnDlE...",
-    "signed_at": "2025-01-02T03:04:05Z"
-  }
-}
-```
 
 ## Error Handling
 
