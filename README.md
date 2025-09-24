@@ -2,24 +2,20 @@
 
 ![GitHub Release (latest by date)](https://img.shields.io/github/v/release/outshift-open/agntcy-dir-push-action)
 [![Tests](https://github.com/outshift-open/agntcy-dir-push-action/actions/workflows/test-signing-and-pushing.yml/badge.svg?branch=main)](https://github.com/outshift-open/agntcy-dir-push-action/actions/workflows/test-signing-and-pushing.yml)
-[![License](https://img.shields.io/github/license/outshift-open/open-ui-kit)](LICENSE.md)
+[![License](https://img.shields.io/github/license/outshift-open/agntcy-dir-push-action)](LICENSE.md)
 
-Push records to your [Agent Directory](https://agent-directory.outshift.com) using the [dirctl CLI](https://github.com/agntcy/dir).
+Push [OASF](https://github.com/agntcy/oasf) records to the [Hosted Outshift Agent Directory](https://agent-directory.outshift.com) using the [dirctl CLI](https://github.com/agntcy/dir).
 
 ## How It Works
 
-The action prepares the `dirctl` CLI for your runner's environment and **processes your record file**, applying any specified overrides for organization, name, or version. It then smartly **handles the record's signature** before **pushing the final version** to your specified Agent Directory.
+This GitHub Action streamlines the process of publishing your AI agents to the Agent Directory. Features:
 
-
-## Features
-
-- **Downloads** the correct `dirctl` binary for your runner's OS and architecture.
-- **Pushes** records that are already signed.
-- **Signs** unsigned records on-the-fly using a provided Cosign key.
-- Re-signs an already signed record with a new key
-- Dynamically **overrides** `organization_name`, `record_name`, and `record_version` at runtime.
-- Uses GitHub **secrets** for API keys and signing credentials
-- Automatically provides GitHub action  **artifacts** for easy troubleshooting.
+*  **Environment Setup**: Automatically downloads and configures the correct `dirctl` CLI binary for your runner's operating system and architecture
+*  **Record Processing**: Reads your agent record file and applies any runtime overrides you've specified (organization name, record name, or version)
+*  **Smart Signing**: Intelligently handles record signatures - whether your record is already signed, needs signing with your provided Cosign key, or requires re-signing with a new key
+*  **Secure Publishing**: Pushes the final, processed record to Agent Directory using authenticated API credentials
+* **Secret Handling** Uses GitHub secrets for API keys and signing credentials.
+* **Troubleshooting** Automatically provides GitHub action artifacts for easy troubleshooting.
 
 ## Supported Platforms
 
@@ -37,7 +33,7 @@ You'll need **API Key credentials** for your Agent Directory instance. Follow th
    dirctl hub login
    ```
 
-2. **Create an API key for your organization:**
+1. **Create an API key for your organization:**
    ```bash
    dirctl hub apikey create --role ROLE_ORG_ADMIN --org-name your_org_name
    ```
@@ -49,24 +45,13 @@ You'll need **API Key credentials** for your Agent Directory instance. Follow th
    - `ROLE_VIEWER` - Read-only access
 
 
-> **Important**: The `name` field in your directory record file must always be in the format `"my-org/my-record"`. The organization part (`my-org`) must match the `--org-name` used to create the API key. If they differ, use the `organization_name` input to override it.
-
-3. **Extract the credentials:**
-
-   The command will output your `client_id`:
+   The command will output both client id and secret:
    ```
-   API Key created successfully:
-   {
-     "client_id": "abcd1234-56ef-78gh-90ij-klmnopqrstuv@ak.example.io",
-     "role_name": "ROLE_ORG_ADMIN"
-   }
+   DIRCTL_CLIENT_ID=3603e7f1-6903-44ec-868e-b78fab3cf43f@ak.eticloud.io
+   DIRCTL_CLIENT_SECRET=*********************************************
    ```
 
-   The `secret` (base64 encoded) can be found in your session file:
-   - Location: `~/.dirctl/session.json`
-   - Path: `[hub_sessions][your-directory-url][api_key_access][secret]`
-
-4. **Add them as GitHub secrets in your repository:**
+1. **Add them as GitHub secrets in your repository:**
 
    Create secrets with any names you prefer, for example:
    - `AGENT_DIRECTORY_CLIENT_ID`
@@ -89,12 +74,15 @@ your-private-key-content-here
 -----END ENCRYPTED SIGSTORE PRIVATE KEY-----
 ```
 
->**Note:** You can sign the record with `dirctl` **locally** by exectuting:\
+>**Note:** You can sign the record with `dirctl` **locally** by executing:\
 > `cat your-record.json | dirctl hub sign --stdin --key cosign.key > signed-record.json`
 
 ### Directory Record File
 
 Your directory record JSON file **must be present in your repository**. You can place it anywhere in your repository structure (e.g., `./records/my-record.json`).
+
+> **Important**: The `name` field in your directory record file must always be in the format `"my-org/my-record"`. The organization part (`my-org`) must match the `--org-name` used to create the API key. If they differ, use the `organization_name` input to override it.
+
 
 ## Override Behavior
 
@@ -116,7 +104,7 @@ Override Example:
 
 ## Usage Examples
 
-**Runner Compatibility:** This action works on any GitHub Actions runner. The examples below use `ubuntu-latest`, but you can use `macos-latest`, `apline-latest`, or any other runner. The action automatically downloads the appropriate dirctl binary.
+**Runner Compatibility:** This action works on any GitHub Actions runner. The examples below use `ubuntu-latest`, but you can use `macos-latest`, `alpine-latest`, or any other runner. The action automatically downloads the appropriate dirctl binary.
 
 ### Basic Usage (Pre-signed Record)
 
@@ -129,7 +117,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Push Directory Record
-        uses: your-org/agent-directory-actions@v1
+        uses: outshift-open/agntcy-dir-push-action@v1
         with:
           dirctl_client_id: ${{ secrets.AGENT_DIRECTORY_CLIENT_ID }}
           dirctl_secret: ${{ secrets.AGENT_DIRECTORY_SECRET }}
@@ -147,7 +135,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Push Signed Directory Record
-        uses: your-org/agent-directory-actions@v1
+        uses: outshift-open/agntcy-dir-push-action@v1
         with:
           dirctl_client_id: ${{ secrets.MY_CLIENT_ID }}
           dirctl_secret: ${{ secrets.MY_SECRET }}
@@ -167,7 +155,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Push Record with Custom Values
-        uses: your-org/agent-directory-actions@v1
+        uses: outshift-open/agntcy-dir-push-action@v1
         with:
           dirctl_client_id: ${{ secrets.DIRECTORY_CLIENT }}
           dirctl_secret: ${{ secrets.DIRECTORY_SECRET }}
@@ -189,7 +177,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Push to Custom Directory
-        uses: your-org/agent-directory-actions@v1
+        uses: outshift-open/agntcy-dir-push-action@v1
         with:
           directory_endpoint: "https://my-custom-directory.example.com"
           dirctl_client_id: ${{ secrets.CUSTOM_DIRECTORY_CLIENT_ID }}
@@ -210,62 +198,8 @@ jobs:
 | `record_version` | Override the version in the record file | No | - |
 | `cosign_private_key` | Cosign private key content for signing | No | - |
 | `cosign_private_key_password` | Password for encrypted cosign private key | No | - |
-| `dirctl_version` | Version of dirctl to download and use | No | `v0.2.12` |
+| `dirctl_version` | Version of dirctl to download and use | No | `v0.3.0` |
 
-## Directory Record File Format
-
-Your directory record file should be a JSON file stored in your repository following this structure:
-
-```json
-{
-  "name": "organization/record-name",
-  "version": "1.0.0",
-  "description": "Description of your AI agent",
-  "schema_version": "0.7.0",
-  "skills": [
-    {
-      "class_uid": 10201
-    }
-  ],
-  "locators": [
-    {
-      "type": "package-source-code",
-      "url": "https://github.com/example/my-record"
-    }
-  ]
-}
-```
-
-### With Existing Signature (Example)
-
-If your record is already signed, include the signature block:
-
-```json
-{
-  "name": "organization/record-name",
-  "version": "1.0.0",
-  "description": "Description of your AI agent",
-  "schema_version": "0.7.0",
-  "skills": [
-    {
-      "class_uid": 10201
-    }
-  ],
-  "locators": [
-    {
-      "type": "package-source-code",
-      "url": "https://github.com/example/my-record"
-    }
-  ],
-  "signature": {
-    "algorithm": "SHA2_256",
-    "signature": "abcdef123456789example0123456789abcdef123456789example0123456789abcd",
-    "content_type": "application/vnd.dev.sigstore.bundle.v0.3+json",
-    "content_bundle": "CoNtEnTbUnDlE...",
-    "signed_at": "2025-01-02T03:04:05Z"
-  }
-}
-```
 
 ## Error Handling
 
@@ -317,7 +251,7 @@ If you receive an error during push, it might be due to organization mismatch:
 1. **Override the organization** in your workflow:
    ```yaml
    - name: Push Directory Record
-     uses: your-org/agent-directory-actions@v1
+     uses: outshift-open/agntcy-dir-push-action@v1
      with:
        dirctl_client_id: ${{ secrets.AGENT_DIRECTORY_CLIENT_ID }}
        dirctl_secret: ${{ secrets.AGENT_DIRECTORY_SECRET }}
@@ -347,7 +281,7 @@ If you receive a `unique constraint` error, it means you are trying to push a re
 1.  **Update** the record **version** either by modifying the `version` field in your **record file** before pushing, or by **overriding it dynamically** in your **workflow**:
     ```yaml
     - name: Push record with updated version
-      uses: your-org/agent-directory-actions@v1
+      uses: outshift-open/agntcy-dir-push-action@v1
       with:
         dirctl_client_id: ${{ secrets.AGENT_DIRECTORY_CLIENT_ID }}
         dirctl_secret: ${{ secrets.AGENT_DIRECTORY_SECRET }}
@@ -358,7 +292,7 @@ If you receive a `unique constraint` error, it means you are trying to push a re
 2.  **Change** the record **name** either in the record **file** or dynamically with the `record_name` **input**:
     ```yaml
     - name: Push record with updated name
-      uses: your-org/agent-directory-actions@v1
+      uses: outshift-open/agntcy-dir-push-action@v1
       with:
         dirctl_client_id: ${{ secrets.AGENT_DIRECTORY_CLIENT_ID }}
         dirctl_secret: ${{ secrets.AGENT_DIRECTORY_SECRET }}
@@ -373,7 +307,7 @@ If you receive a `unique constraint` error, it means you are trying to push a re
 - **Pre-signed record pushing** - Validates pushing records that are already signed
 - **On-the-fly signing** - Tests signing during the push process
 - **Re-signing behavior** - Tests re-signing already signed records
-- **Diffenent Organization** - Tests API Key not belonging to the correct organization
+- **Different Organization** - Tests API Key not belonging to the correct organization
 
 > **Note:** The test workflow (`.github/workflows/test-signing-and-pushing.yml`) can be triggered manually by providing the `record_version`.
 
