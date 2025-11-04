@@ -145,43 +145,82 @@ function process_record {
   export PROCESSED_RECORD_FILE
 }
 
-function sign_record {
-  local has_signature
-  has_signature=$(jq -r '.signature // empty' "$PROCESSED_RECORD_FILE")
+# function sign_record {
+#   local has_signature
+#   has_signature=$(jq -r '.signature // empty' "$PROCESSED_RECORD_FILE")
 
-  if check_option_set "${options["cosign_private_key"]}"; then
-    echo "Cosign private key provided, signing directory record"
-    # Create temporary key file with restricted permissions
-    TEMP_KEY=$(mktemp)
-    chmod 600 "$TEMP_KEY"
-    echo "${options["cosign_private_key"]}" > "$TEMP_KEY"
+#   if check_option_set "${options["cosign_private_key"]}"; then
+#     echo "Cosign private key provided, signing directory record"
+#     # Create temporary key file with restricted permissions
+#     TEMP_KEY=$(mktemp)
+#     chmod 600 "$TEMP_KEY"
+#     echo "${options["cosign_private_key"]}" > "$TEMP_KEY"
 
-    # Sign the record
-    if check_option_set "${options["cosign_private_key_password"]}"; then
-      export COSIGN_PASSWORD="${options["cosign_private_key_password"]}"
-    fi
-    SIGNED_RECORD_FILE="${DIRCTL_ARTIFACTS_DIR}/signed-${RECORD_BASENAME}"
-    if cat "$PROCESSED_RECORD_FILE" | dirctl hub sign --stdin --key "$TEMP_KEY" > "$DIRCTL_OUTPUT_LOG" 2>&1; then
-      mv "$DIRCTL_OUTPUT_LOG" "$SIGNED_RECORD_FILE"
-      echo "Successfully signed directory record"
-    else
-      rm -f "$TEMP_KEY"
-      error_exit "Failed to sign directory record"
-    fi
+#     # Sign the record
+#     if check_option_set "${options["cosign_private_key_password"]}"; then
+#       export COSIGN_PASSWORD="${options["cosign_private_key_password"]}"
+#     fi
+#     SIGNED_RECORD_FILE="${DIRCTL_ARTIFACTS_DIR}/signed-${RECORD_BASENAME}"
+#     if cat "$PROCESSED_RECORD_FILE" | dirctl hub sign --stdin --key "$TEMP_KEY" > "$DIRCTL_OUTPUT_LOG" 2>&1; then
+#       mv "$DIRCTL_OUTPUT_LOG" "$SIGNED_RECORD_FILE"
+#       echo "Successfully signed directory record"
+#     else
+#       rm -f "$TEMP_KEY"
+#       error_exit "Failed to sign directory record"
+#     fi
 
-    rm -f "$TEMP_KEY"
-    unset COSIGN_PASSWORD
-    FINAL_RECORD_FILE="$SIGNED_RECORD_FILE"
-  elif [[ -n "$has_signature" ]]; then
-    echo "Directory record already contains signature, proceeding without signing"
-    FINAL_RECORD_FILE="$PROCESSED_RECORD_FILE"
+#     rm -f "$TEMP_KEY"
+#     unset COSIGN_PASSWORD
+#     FINAL_RECORD_FILE="$SIGNED_RECORD_FILE"
+#   elif [[ -n "$has_signature" ]]; then
+#     echo "Directory record already contains signature, proceeding without signing"
+#   FINAL_RECORD_FILE="$PROCESSED_RECORD_FILE"
 
-  else
-    error_exit "No cosign private key provided and directory record file has no signature field. Cannot proceed, agent signature is required."
-  fi
+#   else
+#     error_exit "No cosign private key provided and directory record file has no signature field. Cannot proceed, agent signature is required."
+#   fi
 
-  export FINAL_RECORD_FILE
-}
+#   export FINAL_RECORD_FILE
+# }
+
+# PHASE 1: sign_record function temporarily disabled
+# function sign_record {
+#   local has_signature
+#   has_signature=$(jq -r '.signature // empty' "$PROCESSED_RECORD_FILE")
+#
+#   if check_option_set "${options["cosign_private_key"]}"; then
+#     echo "Cosign private key provided, signing directory record"
+#     # Create temporary key file with restricted permissions
+#     TEMP_KEY=$(mktemp)
+#     chmod 600 "$TEMP_KEY"
+#     echo "${options["cosign_private_key"]}" > "$TEMP_KEY"
+#
+#     # Sign the record
+#     if check_option_set "${options["cosign_private_key_password"]}"; then
+#       export COSIGN_PASSWORD="${options["cosign_private_key_password"]}"
+#     fi
+#     SIGNED_RECORD_FILE="${DIRCTL_ARTIFACTS_DIR}/signed-${RECORD_BASENAME}"
+#     if cat "$PROCESSED_RECORD_FILE" | dirctl hub sign --stdin --key "$TEMP_KEY" > "$DIRCTL_OUTPUT_LOG" 2>&1; then
+#       mv "$DIRCTL_OUTPUT_LOG" "$SIGNED_RECORD_FILE"
+#       echo "Successfully signed directory record"
+#     else
+#       rm -f "$TEMP_KEY"
+#       error_exit "Failed to sign directory record"
+#     fi
+#
+#     rm -f "$TEMP_KEY"
+#     unset COSIGN_PASSWORD
+#     FINAL_RECORD_FILE="$SIGNED_RECORD_FILE"
+#   elif [[ -n "$has_signature" ]]; then
+#     echo "Directory record already contains signature, proceeding without signing"
+#     FINAL_RECORD_FILE="$PROCESSED_RECORD_FILE"
+#
+#   else
+#     error_exit "No cosign private key provided and directory record file has no signature field. Cannot proceed, agent signature is required."
+#   fi
+#
+#   export FINAL_RECORD_FILE
+# }
 
 function push_to_directory {
   echo "Pushing directory record to directory"
@@ -227,7 +266,8 @@ function main {
 
   echo "Starting Agent Directory Push"
   process_record
-  sign_record
+  # sign_record call temporarily disabled
+  # sign_record
   push_to_directory
   cleanup
   echo "Agent Directory Push completed successfully!"
