@@ -74,7 +74,7 @@ jobs:
           dirctl_client_id: ${{ secrets.DIRCTL_APIKEY_CLIENT_ID }}
           dirctl_secret: ${{ secrets.DIRCTL_APIKEY_SECRET }}
           record_file: ${{ env.TEST_RECORD }}
-          record_name: "unsigned-record-no-key"
+          record_name: "pre-signed-record"
           record_version: ${{ steps.set_version.outputs.version }}
 
       - name: Verify and upload

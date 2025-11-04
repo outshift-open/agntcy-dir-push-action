@@ -143,6 +143,11 @@ function process_record {
 
   export FINAL_REPOSITORY
   export PROCESSED_RECORD_FILE
+  
+  # Signature logic temporarily disabled for testing v0.4.0 push without signature
+  # Set FINAL_RECORD_FILE directly to PROCESSED_RECORD_FILE (no signing)
+  FINAL_RECORD_FILE="$PROCESSED_RECORD_FILE"
+  export FINAL_RECORD_FILE
 }
 
 # function sign_record {
