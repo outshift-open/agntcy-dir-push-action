@@ -42,6 +42,7 @@ jobs:
           dirctl_client_id: "fake-client-id"
           dirctl_secret: "fake-secret"
           record_file: "./non-existent-file.json"
+          organization_name: "fake-org"
 
       - name: Verify and upload
         uses: ./.github/actions/verify-and-upload
@@ -61,7 +62,7 @@ jobs:
       - name: Create invalid JSON file
         run: |
           mkdir -p ./test-data/records
-          echo '{ "name": "test-org/test-agent", "version": "1.0.0" invalid json }' > "$TEST_RECORD_INVALID_JSON"
+          echo '{ "name": "test-record", "version": "1.0.0" invalid json }' > "$TEST_RECORD_INVALID_JSON"
 
       - name: Test action with invalid JSON
         id: test_invalid_json
@@ -71,6 +72,7 @@ jobs:
           dirctl_client_id: "fake-client-id"
           dirctl_secret: "fake-secret"
           record_file: ${{ env.TEST_RECORD_INVALID_JSON }}
+          organization_name: "fake-org"
 
       - name: Verify and upload
         uses: ./.github/actions/verify-and-upload
@@ -79,52 +81,6 @@ jobs:
           outcome: ${{ steps.test_invalid_json.outcome }}
           expected_error: "Invalid JSON format in record file"
           test_name: "test-invalid-json"
-
-  test-invalid-name-format:
-    name: Test invalid name format
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955
-
-      - name: Create record with invalid name format
-        run: |
-          mkdir -p ./test-data/records
-          cat > "$TEST_RECORD_INVALID_NAME" << 'EOF'
-          {
-            "name": "invalid-name-without-slash",
-            "version": "1.0.0",
-            "description": "Test record with invalid name format",
-            "skills": [
-              {
-                "class_uid": 10201
-              }
-            ],
-            "locators": [
-              {
-                "type": "package-source-code",
-                "url": "https://github.com/example/test-agent"
-              }
-            ]
-          }
-          EOF
-
-      - name: Test action with invalid name format
-        id: test_invalid_name
-        uses: ./
-        continue-on-error: true
-        with:
-          dirctl_client_id: "fake-client-id"
-          dirctl_secret: "fake-secret"
-          record_file: ${{ env.TEST_RECORD_INVALID_NAME }}
-
-      - name: Verify and upload
-        uses: ./.github/actions/verify-and-upload
-        with:
-          verification_type: failure
-          outcome: ${{ steps.test_invalid_name.outcome }}
-          expected_error: "Invalid name format in record file"
-          test_name: "test-invalid-name-format"
 
   test-missing-name-field:
     name: Test missing name field
@@ -140,11 +96,7 @@ jobs:
           {
             "version": "1.0.0",
             "description": "Test record without name field",
-            "skills": [
-              {
-                "class_uid": 10201
-              }
-            ]
+            "skills": []
           }
           EOF
 
@@ -156,6 +108,7 @@ jobs:
           dirctl_client_id: "fake-client-id"
           dirctl_secret: "fake-secret"
           record_file: "./test-data/records/no-name.json"
+          organization_name: "fake-org"
 
       - name: Verify and upload
         uses: ./.github/actions/verify-and-upload
@@ -185,6 +138,7 @@ jobs:
           dirctl_client_id: "fake-client-id"
           dirctl_secret: "fake-secret"
           record_file: "./test-data/records/empty.json"
+          organization_name: "fake-org"
 
       - name: Verify and upload
         uses: ./.github/actions/verify-and-upload
@@ -208,6 +162,7 @@ jobs:
         with:
           dirctl_secret: "fake-secret"
           record_file: "./test-data/records/action-test.json"
+          organization_name: "fake-org"
 
       - name: Verify missing client_id error
         run: |
@@ -224,6 +179,7 @@ jobs:
         with:
           dirctl_client_id: "fake-client-id"
           record_file: "./test-data/records/action-test.json"
+          organization_name: "fake-org"
 
       - name: Verify missing secret error
         run: |
@@ -240,6 +196,7 @@ jobs:
         with:
           dirctl_client_id: "fake-client-id"
           dirctl_secret: "fake-secret"
+          organization_name: "fake-org"
 
       - name: Verify missing record_file error
         run: |
@@ -248,3 +205,20 @@ jobs:
             exit 1
           fi
           echo "SUCCESS: Action correctly failed without record_file"
+
+      - name: Test action without organization_name
+        id: test_missing_org_name
+        uses: ./
+        continue-on-error: true
+        with:
+          dirctl_client_id: "fake-client-id"
+          dirctl_secret: "fake-secret"
+          record_file: "./test-data/records/action-test.json"
+
+      - name: Verify missing organization_name error
+        run: |
+          if [[ "${{ steps.test_missing_org_name.outcome }}" != "failure" ]]; then
+            echo "ERROR: Action should have failed without organization_name"
+            exit 1
+          fi
+          echo "SUCCESS: Action correctly failed without organization_name"

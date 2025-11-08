@@ -1,5 +1,5 @@
 {
-  "name": "test-github-actions-org/test-github-actions-record",
+  "name": "test-github-actions-record",
   "version": "1.0",
   "description": "Agent used for testing dirctl push in GitHub Actions",
   "schema_version": "0.7.0",
