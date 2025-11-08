@@ -110,7 +110,7 @@ jobs:
         with:
           verification_type: failure
           outcome: ${{ steps.test_push_existing.outcome }}
-          expected_error: "model with same version already exists"
+          expected_error: "AlreadyExists"
           test_name: "test-push-existing-record"
 
   test-push-and-sign-success:
