@@ -122,7 +122,7 @@ function process_record {
     mv "${PROCESSED_RECORD_FILE}.tmp" "$PROCESSED_RECORD_FILE"
   fi
 
-  # Get organization name (required)
+  # Get organization name
   ORG_NAME="${options["organization_name"]}"
   echo "Organization for push: $ORG_NAME"
   echo "Record name: $RECORD_NAME"
@@ -143,7 +143,7 @@ function sign_record {
 
   echo "Cosign private key provided, signing directory record"
 
-  # Extract CID from push output (grep for line starting with 'bae')
+  # Extract CID from push output
   local CID
   CID=$(grep -oE '^baear[a-z0-9]+' "$DIRCTL_OUTPUT_LOG" | head -n 1)
 
