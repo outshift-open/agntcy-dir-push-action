@@ -143,9 +143,9 @@ function sign_record {
 
   echo "Cosign private key provided, signing directory record"
 
-  # Extract CID from push output (push output is just the CID)
+  # Extract CID from push output (grep for line starting with 'bae')
   local CID
-  CID=$(head -n 1 "$DIRCTL_OUTPUT_LOG" | tr -d '[:space:]')
+  CID=$(grep -oE '^baear[a-z0-9]+' "$DIRCTL_OUTPUT_LOG" | head -n 1)
 
   if [[ -z "$CID" ]]; then
     error_exit "Failed to extract CID from push output"

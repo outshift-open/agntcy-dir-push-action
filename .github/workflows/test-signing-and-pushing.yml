@@ -170,7 +170,8 @@ jobs:
           organization_name: "test-github-actions-org"
           record_name: "gha-test-sign-fail-record"
           record_version: ${{ steps.set_version.outputs.version }}
-          cosign_private_key: "invalid-key-content"
+          cosign_private_key: ${{ secrets.COSIGN_KEY }}
+          cosign_private_key_password: "wrong-cosign-password"
 
       - name: Verify and upload
         uses: ./.github/actions/verify-and-upload
