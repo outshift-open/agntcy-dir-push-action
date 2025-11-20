@@ -198,14 +198,6 @@ function push_to_directory {
   echo "Endpoint: ${options["directory_endpoint"]}"
   echo "File: $FINAL_RECORD_FILE"
 
-  # Display the final record content that will be pushed
-  echo ""
-  echo "========== FINAL RECORD CONTENT TO BE PUSHED =========="
-  cat "$FINAL_RECORD_FILE"
-  echo ""
-  echo "======================================================="
-  echo ""
-
   # Api key authentication via environment variables
   export DIRCTL_CLIENT_ID="${options["dirctl_client_id"]}"
   export DIRCTL_CLIENT_SECRET="${options["dirctl_secret"]}"

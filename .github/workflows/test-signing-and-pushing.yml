@@ -55,8 +55,8 @@ jobs:
           expected_error: "failed to authenticate with API key"
           test_name: "test-push-fake-credentials"
 
-  test-pushing-unsigned-record-without-signing:
-    name: Test pushing unsigned record without signing
+  test-pushing-record-without-signing:
+    name: Test pushing record without signing
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -69,7 +69,7 @@ jobs:
           version: ${{ inputs.record_version }}
 
       - name: Agent directory push reusable action
-        id: test_unsigned_push
+        id: test_push_no_sign
         uses: ./
         with:
           dirctl_client_id: ${{ secrets.DIRCTL_APIKEY_CLIENT_ID }}
@@ -83,8 +83,8 @@ jobs:
         uses: ./.github/actions/verify-and-upload
         with:
           verification_type: success
-          outcome: ${{ steps.test_unsigned_push.outcome }}
-          test_name: "test-pushing-unsigned-record-without-signing"
+          outcome: ${{ steps.test_push_no_sign.outcome }}
+          test_name: "test-pushing-record-without-signing"
 
   test-push-already-existing-record:
     name: Test pushing already existing record
