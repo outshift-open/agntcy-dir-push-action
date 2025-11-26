@@ -35,12 +35,11 @@ inputs:
     required: false
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
-    - name: Run verification
+    - name: Verify test outcome
       shell: bash
       run: |
-        chmod +x ./test-data/verify_output.sh
         source ./test-data/verify_output.sh
 
         case "${{ inputs.verification_type }}" in
@@ -50,11 +49,18 @@ runs:
           "success")
             verify_test_success "${{ inputs.outcome }}" "${{ inputs.test_name }}"
             ;;
+          "push_and_sign_success")
+            verify_test_push_and_sign_success "${{ inputs.outcome }}" "${{ inputs.test_name }}"
+            ;;
+          "push_success_sign_failure")
+            verify_test_push_success_sign_failure "${{ inputs.outcome }}" "${{ inputs.test_name }}" "${{ inputs.expected_error }}"
+            ;;
           "signed_success")
-            verify_test_signed_success "${{ inputs.outcome }}" "${{ inputs.test_name }}" "${{ inputs.record_file }}"
+            echo "WARNING: signed_success verification type is deprecated"
+            verify_test_success "${{ inputs.outcome }}" "${{ inputs.test_name }}"
             ;;
           *)
-            echo "Error: Unknown verification type: ${{ inputs.verification_type }}"
+            echo "Unknown verification type: ${{ inputs.verification_type }}"
             exit 1
             ;;
         esac

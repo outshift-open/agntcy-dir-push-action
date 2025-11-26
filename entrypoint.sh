@@ -94,111 +94,120 @@ function process_record {
   echo "Current name in record: $CURRENT_NAME"
   echo "Current version in record: $CURRENT_VERSION"
 
-  # Parse org/agent from name
-  if [[ "$CURRENT_NAME" =~ ^([^/]+)/(.+)$ ]]; then
-    CURRENT_ORG="${BASH_REMATCH[1]}"
-    CURRENT_AGENT="${BASH_REMATCH[2]}"
-  else
-    error_exit "Invalid name format in record file. Expected: 'organization/agent_name', got: '$CURRENT_NAME'"
-  fi
-
-  # Apply overrides
-  NEW_ORG="$CURRENT_ORG"
-  NEW_AGENT="$CURRENT_AGENT"
+  RECORD_NAME="$CURRENT_NAME"
   NEW_VERSION="$CURRENT_VERSION"
 
-  if check_option_set "${options["organization_name"]}"; then
-    NEW_ORG="${options["organization_name"]}"
-    echo "Overriding organization: $CURRENT_ORG -> $NEW_ORG"
-  fi
-
+  # Apply record name override if provided
   if check_option_set "${options["record_name"]}"; then
-    NEW_AGENT="${options["record_name"]}"
-    echo "Overriding agent name: $CURRENT_AGENT -> $NEW_AGENT"
+    RECORD_NAME="${options["record_name"]}"
+    echo "Overriding record name: $CURRENT_NAME -> $RECORD_NAME"
   fi
 
+  # Apply version override if provided
   if check_option_set "${options["record_version"]}"; then
     NEW_VERSION="${options["record_version"]}"
     echo "Overriding version: $CURRENT_VERSION -> $NEW_VERSION"
   fi
 
   # Update the working copy JSON file with new values
-  NEW_NAME="${NEW_ORG}/${NEW_AGENT}"
-
-  if [[ "$NEW_NAME" != "$CURRENT_NAME" ]]; then
-    echo "Updating name in record: $CURRENT_NAME -> $NEW_NAME"
-    jq --arg name "$NEW_NAME" '.name = $name' "$PROCESSED_RECORD_FILE" > "${PROCESSED_RECORD_FILE}.tmp"
+  if [[ "$RECORD_NAME" != "$CURRENT_NAME" ]]; then
+    echo "Updating name in record: $CURRENT_NAME -> $RECORD_NAME"
+    jq --arg name "$RECORD_NAME" '.name = $name' "$PROCESSED_RECORD_FILE" > "${PROCESSED_RECORD_FILE}.tmp"
     mv "${PROCESSED_RECORD_FILE}.tmp" "$PROCESSED_RECORD_FILE"
   fi
 
-  if [[ -n "$NEW_VERSION" && "$NEW_VERSION" != "$CURRENT_VERSION" ]]; then
+  if [[ "$NEW_VERSION" != "$CURRENT_VERSION" ]]; then
     echo "Updating version in record: $CURRENT_VERSION -> $NEW_VERSION"
     jq --arg version "$NEW_VERSION" '.version = $version' "$PROCESSED_RECORD_FILE" > "${PROCESSED_RECORD_FILE}.tmp"
     mv "${PROCESSED_RECORD_FILE}.tmp" "$PROCESSED_RECORD_FILE"
   fi
 
-  # Push
-  FINAL_REPOSITORY="${NEW_ORG}/${NEW_AGENT}"
-  echo "Final repository path for push: $FINAL_REPOSITORY"
+  # Get organization name
+  ORG_NAME="${options["organization_name"]}"
+  echo "Organization for push: $ORG_NAME"
+  echo "Record name: $RECORD_NAME"
 
-  export FINAL_REPOSITORY
+  export ORG_NAME
+  export RECORD_NAME
   export PROCESSED_RECORD_FILE
+
+  FINAL_RECORD_FILE="$PROCESSED_RECORD_FILE"
+  export FINAL_RECORD_FILE
 }
 
 function sign_record {
-  local has_signature
-  has_signature=$(jq -r '.signature // empty' "$PROCESSED_RECORD_FILE")
-
-  if check_option_set "${options["cosign_private_key"]}"; then
-    echo "Cosign private key provided, signing directory record"
-    # Create temporary key file with restricted permissions
-    TEMP_KEY=$(mktemp)
-    chmod 600 "$TEMP_KEY"
-    echo "${options["cosign_private_key"]}" > "$TEMP_KEY"
-
-    # Sign the record
-    if check_option_set "${options["cosign_private_key_password"]}"; then
-      export COSIGN_PASSWORD="${options["cosign_private_key_password"]}"
-    fi
-    SIGNED_RECORD_FILE="${DIRCTL_ARTIFACTS_DIR}/signed-${RECORD_BASENAME}"
-    if cat "$PROCESSED_RECORD_FILE" | dirctl hub sign --stdin --key "$TEMP_KEY" > "$DIRCTL_OUTPUT_LOG" 2>&1; then
-      mv "$DIRCTL_OUTPUT_LOG" "$SIGNED_RECORD_FILE"
-      echo "Successfully signed directory record"
-    else
-      rm -f "$TEMP_KEY"
-      error_exit "Failed to sign directory record"
-    fi
-
-    rm -f "$TEMP_KEY"
-    unset COSIGN_PASSWORD
-    FINAL_RECORD_FILE="$SIGNED_RECORD_FILE"
-  elif [[ -n "$has_signature" ]]; then
-    echo "Directory record already contains signature, proceeding without signing"
-    FINAL_RECORD_FILE="$PROCESSED_RECORD_FILE"
-
-  else
-    error_exit "No cosign private key provided and directory record file has no signature field. Cannot proceed, agent signature is required."
+  if ! check_option_set "${options["cosign_private_key"]}"; then
+    echo "No cosign private key provided, skipping signing step"
+    return 0
   fi
 
-  export FINAL_RECORD_FILE
+  echo "Cosign private key provided, signing directory record"
+
+  # Extract CID from push output
+  local CID
+  CID=$(grep -oE '^baear[a-z0-9]+' "$DIRCTL_OUTPUT_LOG" | head -n 1)
+
+  if [[ -z "$CID" ]]; then
+    error_exit "Failed to extract CID from push output"
+  fi
+
+  echo "Record CID to sign: $CID"
+
+  # Create temporary key file with restricted permissions
+  local TEMP_KEY
+  TEMP_KEY=$(mktemp)
+  chmod 600 "$TEMP_KEY"
+  echo "${options["cosign_private_key"]}" > "$TEMP_KEY"
+
+  # Set password if provided
+  if check_option_set "${options["cosign_private_key_password"]}"; then
+    export COSIGN_PASSWORD="${options["cosign_private_key_password"]}"
+  fi
+
+  export DIRCTL_CLIENT_ID="${options["dirctl_client_id"]}"
+  export DIRCTL_CLIENT_SECRET="${options["dirctl_secret"]}"
+
+  local SIGN_OUTPUT_LOG="${DIRCTL_ARTIFACTS_DIR}/dirctl_sign_output.log"
+  echo "Executing: dirctl hub --server-address ${options["directory_endpoint"]} sign --no-cache $ORG_NAME $CID --key $TEMP_KEY"
+
+  if dirctl hub \
+    --server-address "${options["directory_endpoint"]}" \
+    sign \
+    --no-cache \
+    "$ORG_NAME" \
+    "$CID" \
+    --key "$TEMP_KEY" > "$SIGN_OUTPUT_LOG" 2>&1; then
+    cat "$SIGN_OUTPUT_LOG"
+    echo "Successfully signed directory record with CID: $CID"
+  else
+    cat "$SIGN_OUTPUT_LOG"
+    rm -f "$TEMP_KEY"
+    unset COSIGN_PASSWORD DIRCTL_CLIENT_ID DIRCTL_CLIENT_SECRET
+    error_exit "Failed to sign directory record"
+  fi
+
+  # Cleanup
+  rm -f "$TEMP_KEY"
+  unset COSIGN_PASSWORD DIRCTL_CLIENT_ID DIRCTL_CLIENT_SECRET
 }
 
 function push_to_directory {
   echo "Pushing directory record to directory"
-  echo "Repository: $FINAL_REPOSITORY"
+  echo "Organization: $ORG_NAME"
+  echo "Record name: $RECORD_NAME"
   echo "Endpoint: ${options["directory_endpoint"]}"
   echo "File: $FINAL_RECORD_FILE"
 
   # Api key authentication via environment variables
   export DIRCTL_CLIENT_ID="${options["dirctl_client_id"]}"
   export DIRCTL_CLIENT_SECRET="${options["dirctl_secret"]}"
-  echo "Executing: dirctl hub --server-address ${options["directory_endpoint"]} push --no-cache $FINAL_REPOSITORY $FINAL_RECORD_FILE"
+  echo "Executing: dirctl hub --server-address ${options["directory_endpoint"]} push --no-cache $ORG_NAME $FINAL_RECORD_FILE"
 
   if dirctl hub \
     --server-address "${options["directory_endpoint"]}" \
     push \
     --no-cache \
-    "$FINAL_REPOSITORY" \
+    "$ORG_NAME" \
     "$FINAL_RECORD_FILE" > "$DIRCTL_OUTPUT_LOG" 2>&1; then
     cat "$DIRCTL_OUTPUT_LOG"
     echo "Successfully pushed directory record to directory"
@@ -219,7 +228,7 @@ function main {
   setup_options "$@"
   mkdir -p "$DIRCTL_ARTIFACTS_DIR"
   # Check mandatory fields
-  for option in directory_endpoint dirctl_client_id dirctl_secret record_file; do
+  for option in directory_endpoint dirctl_client_id dirctl_secret record_file organization_name; do
     if [[ -z "${options[$option]}" ]]; then
       error_exit "$option is required but not provided"
     fi
@@ -227,8 +236,8 @@ function main {
 
   echo "Starting Agent Directory Push"
   process_record
-  sign_record
   push_to_directory
+  sign_record
   cleanup
   echo "Agent Directory Push completed successfully!"
 }
